@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Loader2, BrainCircuit, ShieldCheck, MessageSquare, ArrowLeft, Save, Activity, BarChart3, Users, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, BrainCircuit, ShieldCheck, MessageSquare, ArrowLeft, Save, Activity, BarChart3, Users, CheckCircle, XCircle, Mic } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+import AudioRecorder from '../components/AudioRecorder'; // Import updated here
 
 const CandidateDetails = () => {
   const { id } = useParams();
@@ -12,6 +13,7 @@ const CandidateDetails = () => {
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState("");
   const [analysisData, setAnalysisData] = useState({ ats: null, personality: null, bias: null });
+  const [transcript, setTranscript] = useState(null); // Added for transcript display
 
   useEffect(() => {
     fetchCandidate();
@@ -29,7 +31,25 @@ const CandidateDetails = () => {
     }
   };
 
-  // Handler: Run ATS Analysis
+  // Helper: Handle Audio Transcription
+  const handleAudioUpload = async (blob) => {
+    const formData = new FormData();
+    formData.append('audio', blob, 'interview.webm');
+    try {
+      setLoading(true);
+      const res = await axios.post('http://localhost:5000/api/ai/transcribe', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setTranscript(res.data.transcript);
+      alert("Transcript generated successfully!");
+    } catch (error) {
+      alert("Transcription failed.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const runATS = async () => {
     setLoading(true);
     const res = await axios.post(`http://localhost:5000/api/ai/analyze/ats/${id}`);
@@ -37,7 +57,6 @@ const CandidateDetails = () => {
     setLoading(false);
   };
 
-  // Handler: Run Personality Analysis
   const runPersonality = async () => {
     setLoading(true);
     const res = await axios.post(`http://localhost:5000/api/ai/analyze/personality/${id}`);
@@ -45,13 +64,11 @@ const CandidateDetails = () => {
     setLoading(false);
   };
 
-  // Handler: Update Status (Hire / Reject)
   const handleStatusUpdate = async (newStatus) => {
     if (!window.confirm(`Are you sure you want to mark this candidate as ${newStatus}?`)) return;
     
     try {
       setLoading(true);
-      // Backend status update call
       await axios.put(`http://localhost:5000/api/ai/candidates/${id}/status`, { status: newStatus });
       setCandidate(prev => ({ ...prev, status: newStatus }));
       alert(`Candidate successfully marked as ${newStatus.toUpperCase()}!`);
@@ -74,7 +91,7 @@ const CandidateDetails = () => {
   return (
     <div className="p-8 max-w-6xl mx-auto pb-10">
       
-      {/* Header with Hire/Reject Actions */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl border shadow-sm">
         <div className="flex items-center">
           <button onClick={() => navigate(-1)} className="mr-4 p-2 hover:bg-slate-100 rounded-lg transition-colors"><ArrowLeft size={20}/></button>
@@ -88,7 +105,6 @@ const CandidateDetails = () => {
           </span>
         </div>
         
-        {/* Action Buttons */}
         <div className="flex gap-3">
           <button onClick={() => handleStatusUpdate('rejected')} className="flex items-center bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors border border-red-200 shadow-sm">
             <XCircle size={18} className="mr-2"/> Reject
@@ -113,15 +129,30 @@ const CandidateDetails = () => {
           
           {/* Overview Tab */}
           {activeTab === 'Overview' && (
-            <div className="bg-white p-6 rounded-lg border shadow-sm">
-              <h2 className="flex items-center font-bold mb-4 text-slate-800"><BrainCircuit className="mr-2 text-violet-600" /> AI Resume Analysis</h2>
-              {candidate.parsedResume ? (
-                <pre className="bg-slate-50 p-4 rounded text-sm overflow-x-auto text-slate-700 border border-slate-100">{JSON.stringify(candidate.parsedResume, null, 2)}</pre>
-              ) : (
-                <div className="flex justify-center p-6">
-                  <button onClick={() => axios.post(`http://localhost:5000/api/ai/parse-resume/${id}`, { resumeText: candidate.careerTrajectory }).then(res => setCandidate(res.data.data))} className="bg-violet-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-violet-700 transition shadow-sm">Parse Resume</button>
-                </div>
-              )}
+            <div className="space-y-6">
+              {/* Parse Resume Section */}
+              <div className="bg-white p-6 rounded-lg border shadow-sm">
+                <h2 className="flex items-center font-bold mb-4 text-slate-800"><BrainCircuit className="mr-2 text-violet-600" /> AI Resume Analysis</h2>
+                {candidate.parsedResume ? (
+                  <pre className="bg-slate-50 p-4 rounded text-sm overflow-x-auto text-slate-700 border border-slate-100">{JSON.stringify(candidate.parsedResume, null, 2)}</pre>
+                ) : (
+                  <div className="flex justify-center p-6">
+                    <button onClick={() => axios.post(`http://localhost:5000/api/ai/parse-resume/${id}`, { resumeText: candidate.careerTrajectory }).then(res => setCandidate(res.data.data))} className="bg-violet-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-violet-700 transition shadow-sm">Parse Resume</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Interview Recording Section */}
+              <div className="bg-white p-6 rounded-lg border shadow-sm">
+                <h2 className="flex items-center font-bold mb-4 text-slate-800"><Mic className="mr-2 text-violet-600" /> Live Interview Transcription</h2>
+                <AudioRecorder onUpload={handleAudioUpload} />
+                {transcript && (
+                  <div className="mt-4 p-4 bg-slate-50 border rounded-lg">
+                    <h4 className="font-bold mb-2">Interview Transcript:</h4>
+                    <p className="text-sm text-slate-700 whitespace-pre-line">{transcript}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

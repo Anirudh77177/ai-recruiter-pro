@@ -32,7 +32,6 @@ router.post('/upload-resume', upload.single('resume'), async (req, res) => {
 
         const parsedData = await parseResumeToJSON(resumeText);
 
-        // Skills Sanitization
         let normalizedSkills = [];
         if (Array.isArray(parsedData.skills)) {
             normalizedSkills = parsedData.skills;
@@ -40,7 +39,6 @@ router.post('/upload-resume', upload.single('resume'), async (req, res) => {
             normalizedSkills = Object.values(parsedData.skills).flat();
         }
 
-        // Education Sanitization
         let educationString = "Not specified";
         if (Array.isArray(parsedData.education)) {
             educationString = parsedData.education.map(edu =>
@@ -73,14 +71,39 @@ router.post('/upload-resume', upload.single('resume'), async (req, res) => {
     }
 });
 
-// --- STATUS UPDATE ROUTE (With Email & No Warnings) ---
+// --- TRANSCRIBE AUDIO ROUTE (NEW) ---
+router.post('/transcribe', upload.single('audio'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ message: "No audio file provided" });
+
+        const response = await axios.post(
+            'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true',
+            req.file.buffer,
+            {
+                headers: {
+                    'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
+                    'Content-Type': 'audio/webm'
+                }
+            }
+        );
+
+        const transcript = response.data.results.channels[0].alternatives[0].transcript;
+        res.status(200).json({ transcript });
+
+    } catch (error) {
+        console.error("❌ Transcription Error:", error.response?.data || error.message);
+        res.status(500).json({ error: "Failed to transcribe audio." });
+    }
+});
+
+// --- STATUS UPDATE ROUTE ---
 router.put('/candidates/:id/status', async (req, res) => {
     try {
         const { status } = req.body;
         const candidate = await Candidate.findByIdAndUpdate(
             req.params.id,
             { status },
-            { returnDocument: 'after' } 
+            { returnDocument: 'after' }
         );
 
         if (!candidate) return res.status(404).json({ message: "Candidate not found" });
@@ -97,7 +120,7 @@ router.put('/candidates/:id/status', async (req, res) => {
     }
 });
 
-// --- SCHEDULE INTERVIEW ROUTE (With Email & No Warnings) ---
+// --- SCHEDULE INTERVIEW ROUTE ---
 router.put('/candidates/:id/schedule', async (req, res) => {
     try {
         const { interviewDate, interviewTime } = req.body;
@@ -117,6 +140,31 @@ router.put('/candidates/:id/schedule', async (req, res) => {
 
         res.status(200).json({ data: candidate, message: "Interview Scheduled & Email Sent!" });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- RESCHEDULE INTERVIEW ROUTE ---
+router.put('/candidates/:id/reschedule', async (req, res) => {
+    try {
+        const { interviewDate, interviewTime } = req.body;
+        const candidate = await Candidate.findByIdAndUpdate(
+            req.params.id,
+            { interviewDate, interviewTime, status: 'rescheduled' },
+            { returnDocument: 'after' }
+        );
+
+        if (!candidate) return res.status(404).json({ message: "Candidate nahi mila" });
+
+        await sendEmail(
+            candidate.email,
+            "Interview Rescheduled - HireSense",
+            `Hi ${candidate.name},\n\nHumne aapka interview reschedule kar diya hai.\n\nNayi timing: ${interviewDate} at ${interviewTime}.\n\nBest of luck!`
+        );
+
+        res.status(200).json({ message: "Interview successfully rescheduled!", data: candidate });
+    } catch (error) {
+        console.error("Reschedule Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
