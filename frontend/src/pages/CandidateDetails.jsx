@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Loader2, BrainCircuit, ShieldCheck, MessageSquare, ArrowLeft, Save, Activity, BarChart3, Users, CheckCircle, XCircle, Mic } from 'lucide-react';
+import { Loader2, BrainCircuit, MessageSquare, ArrowLeft, Save, CheckCircle, XCircle, Mic } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
-import AudioRecorder from '../components/AudioRecorder'; // Import updated here
+import AudioRecorder from '../components/AudioRecorder';
 
 const CandidateDetails = () => {
   const { id } = useParams();
@@ -12,8 +12,8 @@ const CandidateDetails = () => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState("");
-  const [analysisData, setAnalysisData] = useState({ ats: null, personality: null, bias: null });
-  const [transcript, setTranscript] = useState(null); // Added for transcript display
+  const [analysisData, setAnalysisData] = useState({ ats: null, personality: null });
+  const [transcript, setTranscript] = useState(null);
 
   useEffect(() => {
     fetchCandidate();
@@ -24,6 +24,7 @@ const CandidateDetails = () => {
       const res = await axios.get(`http://localhost:5000/api/ai/candidates/${id}`);
       setCandidate(res.data.data);
       setNotes(res.data.data.recruiterNotes || "");
+      setTranscript(res.data.data.interviewTranscript || null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -31,7 +32,6 @@ const CandidateDetails = () => {
     }
   };
 
-  // Helper: Handle Audio Transcription
   const handleAudioUpload = async (blob) => {
     const formData = new FormData();
     formData.append('audio', blob, 'interview.webm');
@@ -106,6 +106,14 @@ const CandidateDetails = () => {
         </div>
         
         <div className="flex gap-3">
+          {/* Take Interview Button */}
+          <button 
+            onClick={() => navigate(`/interview/${id}`)} 
+            className="flex items-center bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <Mic size={18} className="mr-2"/> Take Interview
+          </button>
+
           <button onClick={() => handleStatusUpdate('rejected')} className="flex items-center bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors border border-red-200 shadow-sm">
             <XCircle size={18} className="mr-2"/> Reject
           </button>
@@ -127,10 +135,8 @@ const CandidateDetails = () => {
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-6">
           
-          {/* Overview Tab */}
           {activeTab === 'Overview' && (
             <div className="space-y-6">
-              {/* Parse Resume Section */}
               <div className="bg-white p-6 rounded-lg border shadow-sm">
                 <h2 className="flex items-center font-bold mb-4 text-slate-800"><BrainCircuit className="mr-2 text-violet-600" /> AI Resume Analysis</h2>
                 {candidate.parsedResume ? (
@@ -142,7 +148,6 @@ const CandidateDetails = () => {
                 )}
               </div>
 
-              {/* Interview Recording Section */}
               <div className="bg-white p-6 rounded-lg border shadow-sm">
                 <h2 className="flex items-center font-bold mb-4 text-slate-800"><Mic className="mr-2 text-violet-600" /> Live Interview Transcription</h2>
                 <AudioRecorder onUpload={handleAudioUpload} />
@@ -156,7 +161,6 @@ const CandidateDetails = () => {
             </div>
           )}
 
-          {/* ATS Score Tab */}
           {activeTab === 'ATS Score' && (
             <div className="bg-white p-6 rounded-lg border shadow-sm">
               {!analysisData.ats ? (
@@ -173,7 +177,6 @@ const CandidateDetails = () => {
             </div>
           )}
 
-          {/* Personality Tab */}
           {activeTab === 'Personality' && (
             <div className="bg-white p-6 rounded-lg border shadow-sm h-96">
               {!analysisData.personality ? (
@@ -191,7 +194,6 @@ const CandidateDetails = () => {
           )}
         </div>
 
-        {/* Recruiter Notes Sidebar */}
         <div className="bg-white p-6 rounded-lg border shadow-sm h-fit sticky top-6">
           <h3 className="font-bold mb-4 flex items-center text-slate-800"><MessageSquare className="mr-2 text-violet-600" size={18}/> Recruiter Notes</h3>
           <textarea 

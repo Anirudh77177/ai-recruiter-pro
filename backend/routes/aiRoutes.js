@@ -313,4 +313,18 @@ router.get('/list-available-models', async (req, res) => {
     }
 });
 
+// Add this in routes/aiRoutes.js
+router.put('/candidates/:id/save-transcript', async (req, res) => {
+    try {
+        const { transcript } = req.body;
+        const candidate = await Candidate.findByIdAndUpdate(
+            req.params.id,
+            { interviewTranscript: transcript }, // Naya field MongoDB mein
+            { returnDocument: 'after' }
+        );
+        res.status(200).json({ message: "Transcript saved!", data: candidate });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 module.exports = router;
