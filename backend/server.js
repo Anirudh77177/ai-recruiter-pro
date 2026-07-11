@@ -1,12 +1,11 @@
+// 1. ENVIRONMENT VARIABLES load karo (Ye line sabse upar honi chahiye)
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const connectDB = require('./config/db'); // DB import
 const aiRoutes = require('./routes/aiRoutes');
 const jobRoutes = require('./routes/jobRoutes');
-
-// Load env variables
-dotenv.config();
 
 // Connect to Database
 connectDB(); 
@@ -16,10 +15,10 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/api/ai', aiRoutes);
-app.use('/api/jobs', require('./routes/jobRoutes'));
-app.use('/api/jobs', jobRoutes);
 
+// Routes
+app.use('/api/ai', aiRoutes);
+app.use('/api/jobs', jobRoutes);
 
 // Basic Health Check Route
 app.get('/api/health', (req, res) => {
